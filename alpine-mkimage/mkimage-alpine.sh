@@ -9,7 +9,7 @@ set -x
 }
 
 usage() {
-	printf >&2 '%s: [-r release] [-m mirror] [-s] [-a CPU architecture] [-c additional repository]\n' "$0"
+	printf >&2 '%s: [-r release] [-m mirror] [-s] [-a CPU architecture] [-c additional repository] [-p additional packages]\n' "$0"
 	exit 1
 }
 
@@ -33,8 +33,7 @@ mkbase() {
         mkdir -p $ROOTFS/usr/bin
         [ $ARCH = armhf ] && cp /usr/bin/qemu-arm-static $ROOTFS/usr/bin || :
 	$TMP/sbin/apk.static --repository $MAINREPO --update-cache --allow-untrusted \
-		--root $ROOTFS --arch $ARCH --initdb add alpine-base
-        [ $ARCH = armhf ] && rm $ROOTFS/usr/bin/qemu-arm-static || :
+		--root $ROOTFS --arch $ARCH --initdb add alpine-base $PKGS
 }
 
 conf() {
@@ -56,7 +55,7 @@ save() {
 	tar --numeric-owner -C $ROOTFS -c . | xz > /tmp/rootfs_$ARCH.tar.xz
 }
 
-while getopts "hr:m:a:s" opt; do
+while getopts "hr:m:a:sp:" opt; do
 	case $opt in
 		r)
 			REL=$OPTARG
@@ -73,6 +72,9 @@ while getopts "hr:m:a:s" opt; do
 		c)
 			ADDITIONALREPO=community
 			;;
+		p)
+			PKGS=$OPTARG
+			;;
 		*)
 			usage
 			;;
@@ -85,6 +87,7 @@ SAVE=${SAVE:-0}
 MAINREPO=$MIRROR/$REL/main
 ADDITIONALREPO=$MIRROR/$REL/community
 ARCH=${ARCH:-$(uname -m)}
+PKGS=${PKGS:-''}
 
 tmp
 getapk
