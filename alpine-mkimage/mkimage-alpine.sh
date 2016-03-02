@@ -1,7 +1,6 @@
 #!/bin/sh
 
 set -e
-set -x
 
 [ $(id -u) -eq 0 ] || {
 	printf >&2 '%s requires root\n' "$0"
@@ -9,7 +8,7 @@ set -x
 }
 
 usage() {
-	printf >&2 '%s: [-r release] [-m mirror] [-s] [-a CPU architecture] [-c additional repository] [-p additional packages]\n' "$0"
+	printf >&2 '%s: [-v] [-r release] [-m mirror] [-s] [-a CPU architecture] [-c additional repository] [-p additional packages]\n' "$0"
 	exit 1
 }
 
@@ -30,8 +29,19 @@ getapk() {
 }
 
 mkbase() {
-        mkdir -p $ROOTFS/usr/bin
-        [ $ARCH = armhf ] && cp /usr/bin/qemu-arm-static $ROOTFS/usr/bin || :
+    mkdir -p $ROOTFS/usr/bin
+    # TODO
+    # Get right qemu-static both for HOST (machine with Docker Engine) and TARGET ($ARCH) architecture
+    case $ARCH in
+        armhf)
+            cp /usr/bin/qemu-arm-static $ROOTFS/usr/bin
+            ;;
+        x86)
+            cp /usr/bin/qemu-i386-static $ROOTFS/usr/bin
+            ;;
+        *)
+            ;;
+    esac
 	$TMP/sbin/apk.static --repository $MAINREPO --update-cache --allow-untrusted \
 		--root $ROOTFS --arch $ARCH --initdb add alpine-base $PKGS
 }
@@ -55,7 +65,7 @@ save() {
 	tar --numeric-owner -C $ROOTFS -c . | xz > /tmp/rootfs_$ARCH.tar.xz
 }
 
-while getopts "hr:m:a:sp:" opt; do
+while getopts "hvr:m:a:sp:" opt; do
 	case $opt in
 		r)
 			REL=$OPTARG
@@ -65,6 +75,9 @@ while getopts "hr:m:a:sp:" opt; do
 			;;
 		s)
 			SAVE=1
+			;;
+		v)
+			VERBOSE=1
 			;;
 		a)
 			ARCH=$OPTARG
@@ -80,6 +93,8 @@ while getopts "hr:m:a:sp:" opt; do
 			;;
 	esac
 done
+
+[ $VERBOSE -eq 1 ] && set -x || :
 
 REL=${REL:-edge}
 MIRROR=${MIRROR:-http://nl.alpinelinux.org/alpine}
